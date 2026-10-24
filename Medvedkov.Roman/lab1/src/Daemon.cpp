@@ -126,7 +126,14 @@ int Daemon::run(const std::string& config, const std::string& pidfile) {
     } catch (const std::exception& error) {
         syslog(LOG_ERR, "%s", error.what());
         if (readiness >= 0) {
-            write(readiness, "0", 1);
+            ssize_t written;
+            do {
+                written = write(readiness, "0", 1);
+            } while (written < 0 && errno == EINTR);
+            if (written != 1) {
+                syslog(LOG_ERR, "Cannot send startup failure reply: %s",
+                       written < 0 ? std::strerror(errno) : "short write");
+            }
             close(readiness);
         }
         closelog();
